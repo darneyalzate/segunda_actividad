@@ -1,0 +1,577 @@
+CREATE DATABASE CONSTRUDATA ;
+
+USE CONSTRUDATA;
+
+
+CREATE TABLE proveedores (
+    id_proveedor INT AUTO_INCREMENT PRIMARY KEY,
+    codigo VARCHAR(20) UNIQUE NOT NULL,
+    nombre VARCHAR(100),
+    direccion VARCHAR(150),
+    telefono VARCHAR(20),
+    correo VARCHAR(100),
+    tipo varchar(20)
+);
+
+CREATE TABLE maquinaria (
+    id_maquinaria INT AUTO_INCREMENT PRIMARY KEY,
+    codigo VARCHAR(20) UNIQUE NOT NULL,
+    nombre VARCHAR(100),
+    marca VARCHAR(50),
+    modelo VARCHAR(50),
+    anio_fabricacion YEAR,
+    horas_uso INT,
+    valor_adquisicion DECIMAL(15,2),
+    valor_actual DECIMAL(15,2),
+    estado_operativo VARCHAR(50),
+    ubicacion_actual VARCHAR(100)
+);
+
+CREATE TABLE especialidades (
+    id_especialidad INT AUTO_INCREMENT PRIMARY KEY,
+    codigo VARCHAR(20) UNIQUE NOT NULL,
+    nombre VARCHAR(100),
+    descripcion TEXT,
+    nivel_cualificacion VARCHAR(50)
+);
+
+
+CREATE TABLE empleados (
+    id_empleado INT AUTO_INCREMENT PRIMARY KEY,
+    dni VARCHAR(15) UNIQUE NOT NULL,
+    nombres VARCHAR(100),
+    apellidos VARCHAR(100),
+    fecha_nacimiento DATE,
+    direccion VARCHAR(150),
+    telefono VARCHAR(20),
+    especialidad_id INT,
+    certificaciones TEXT,
+    anios_experiencia INT,
+    fecha_contratacion DATE,
+    tipo_contrato VARCHAR(50),
+    salario DECIMAL(10,2),
+    cargo VARCHAR(100),
+    FOREIGN KEY (especialidad_id) REFERENCES especialidades(id_especialidad)
+);
+
+CREATE TABLE proyectos (
+    id_proyecto INT AUTO_INCREMENT PRIMARY KEY,
+    codigo VARCHAR(20) UNIQUE NOT NULL,
+    nombre VARCHAR(100) NOT NULL,
+    direccion VARCHAR(150),
+    tipo ENUM('Residencial', 'Comercial', 'Industrial'),
+    area_total DECIMAL(10,2),
+    cantidad_pisos INT,
+    fecha_inicio DATE,
+    fecha_fin_estimada DATE,
+    estado VARCHAR(50),
+    presupuesto_asignado DECIMAL(15,2),
+    gerente_id INT,
+    FOREIGN KEY (gerente_id) REFERENCES empleados(id_empleado)
+);
+
+CREATE TABLE fases (
+    id_fase INT AUTO_INCREMENT PRIMARY KEY,
+    id_proyecto INT NOT NULL,
+    codigo VARCHAR(20) UNIQUE NOT NULL,
+    nombre VARCHAR(100),
+    fecha_inicio DATE,
+    fecha_fin DATE,
+    porcentaje_avance DECIMAL(5,2),
+    presupuesto_asignado DECIMAL(15,2),
+    fase_dependiente_id INT NULL,
+    FOREIGN KEY (id_proyecto) REFERENCES proyectos(id_proyecto),
+    FOREIGN KEY (fase_dependiente_id) REFERENCES fases(id_fase)
+);
+   
+CREATE TABLE planos (
+    id_plano INT AUTO_INCREMENT PRIMARY KEY,
+    codigo VARCHAR(20) UNIQUE NOT NULL,
+    titulo VARCHAR(100),
+    tipo ENUM('Arquitectónico', 'Estructural', 'Eléctrico', 'Sanitario'),
+    fecha_creacion DATE,
+    version VARCHAR(20),
+    responsable_id INT,
+    escala VARCHAR(20),
+    formato_archivo VARCHAR(10),
+    ubicacion_archivo VARCHAR(255),
+    FOREIGN KEY (responsable_id) REFERENCES empleados(id_empleado)
+);
+
+CREATE TABLE materiales (
+    id_material INT AUTO_INCREMENT PRIMARY KEY,
+    codigo VARCHAR(20) UNIQUE NOT NULL,
+    descripcion VARCHAR(150),
+    categoria VARCHAR(100),
+    unidad_medida VARCHAR(20),
+    especificaciones TEXT,
+    proveedor_preferido_id INT,
+    FOREIGN KEY (proveedor_preferido_id) REFERENCES proveedores(id_proveedor)
+);
+
+CREATE TABLE inventario (
+    id_inventario INT AUTO_INCREMENT PRIMARY KEY,
+    id_material INT NOT NULL,
+    almacen VARCHAR(100),
+    ubicacion VARCHAR(100),
+    cantidad_stock DECIMAL(10,2),
+    precio_unitario DECIMAL(10,2),
+    fecha_ultima_entrada DATE,
+    stock_minimo DECIMAL(10,2),
+    FOREIGN KEY (id_material) REFERENCES materiales(id_material)
+);
+
+
+CREATE TABLE compras (
+    id_compra INT AUTO_INCREMENT PRIMARY KEY,
+    numero_orden VARCHAR(30) UNIQUE NOT NULL,
+    fecha DATE,
+    id_proveedor INT,
+    condiciones_pago VARCHAR(100),
+    fecha_entrega DATE,
+    estado VARCHAR(50),
+    id_proyecto INT,
+    FOREIGN KEY (id_proveedor) REFERENCES proveedores(id_proveedor),
+    FOREIGN KEY (id_proyecto) REFERENCES proyectos(id_proyecto)
+);
+
+CREATE TABLE detalle_compra (
+    id_detalle INT AUTO_INCREMENT PRIMARY KEY,
+    id_compra INT NOT NULL,
+    id_material INT NOT NULL,
+    cantidad DECIMAL(10,2),
+    precio_unitario DECIMAL(10,2),
+    FOREIGN KEY (id_compra) REFERENCES compras(id_compra),
+    FOREIGN KEY (id_material) REFERENCES materiales(id_material)
+);
+
+CREATE TABLE herramientas (
+    id_herramienta INT AUTO_INCREMENT PRIMARY KEY,
+    codigo VARCHAR(20) UNIQUE NOT NULL,
+    nombre VARCHAR(100),
+    marca VARCHAR(50),
+    modelo VARCHAR(50),
+    anio_fabricacion YEAR,
+    estado_operativo VARCHAR(50),
+    responsable_id INT,
+    FOREIGN KEY (responsable_id) REFERENCES empleados(id_empleado)
+);
+
+CREATE TABLE presupuestos (
+    id_presupuesto INT AUTO_INCREMENT PRIMARY KEY,
+    id_proyecto INT NOT NULL,
+    codigo_partida VARCHAR(20),
+    descripcion VARCHAR(150),
+    unidad VARCHAR(20),
+    cantidad_presupuestada DECIMAL(10,2),
+    precio_unitario DECIMAL(10,2),
+    subtotal DECIMAL(15,2),
+    observaciones TEXT,
+    FOREIGN KEY (id_proyecto) REFERENCES proyectos(id_proyecto)
+);
+
+CREATE TABLE gastos (
+    id_gasto INT AUTO_INCREMENT PRIMARY KEY,
+    fecha DATE,
+    tipo_gasto VARCHAR(50),
+    descripcion TEXT,
+    monto DECIMAL(15,2),
+    factura VARCHAR(50),
+    id_proveedor INT,
+    id_proyecto INT,
+    id_fase INT,
+    responsable_aprobacion_id INT,
+    FOREIGN KEY (id_proveedor) REFERENCES proveedores(id_proveedor),
+    FOREIGN KEY (id_proyecto) REFERENCES proyectos(id_proyecto),
+    FOREIGN KEY (id_fase) REFERENCES fases(id_fase),
+    FOREIGN KEY (responsable_aprobacion_id) REFERENCES empleados(id_empleado)
+);
+
+CREATE TABLE permisos_legales (
+    id_permiso INT AUTO_INCREMENT PRIMARY KEY,
+    codigo VARCHAR(20) UNIQUE NOT NULL,
+    tipo_permiso VARCHAR(100),
+    id_proyecto INT NOT NULL,
+    entidad_emisora VARCHAR(100),
+    fecha_solicitud DATE,
+    fecha_emision DATE,
+    fecha_vencimiento DATE,
+    responsable_id INT,
+    estado VARCHAR(50),
+    FOREIGN KEY (id_proyecto) REFERENCES proyectos(id_proyecto),
+    FOREIGN KEY (responsable_id) REFERENCES empleados(id_empleado)
+);
+
+
+INSERT INTO empleados (
+    dni, nombres, apellidos, fecha_nacimiento, direccion, telefono, especialidad_id,
+    certificaciones, anios_experiencia, fecha_contratacion, tipo_contrato, salario, cargo
+) VALUES
+('47890123', 'Carlos', 'Ramírez Soto', '1985-04-12', 'Av. Los Olivos 123', '987654321', 1, 'Colegiado CIP 12345', 10, '2015-03-10', 'Indefinido', 7500.00, 'Gerente de Proyecto'),
+('50870111', 'Ana', 'Pérez Valdez', '1990-08-20', 'Calle Las Flores 456', '912345678', 2, 'Certificación Autodesk Revit', 8, '2018-06-01', 'Plazo Fijo', 5500.00, 'Arquitecta'),
+('60123456', 'Luis', 'Mendoza Ruiz', '1988-02-15', 'Jr. Primavera 321', '999888777', 3, 'Certificación Electricidad Industrial', 6, '2019-01-15', 'Temporal', 3200.00, 'Técnico Electricista'),
+('48900234', 'María', 'García Torres', '1995-05-05', 'Calle Sol Naciente 789', '956123987', 4, 'Diplomado en Topografía Moderna', 4, '2021-03-01', 'Practicante', 1800.00, 'Asistente Topógrafa'),
+('40982345', 'José', 'López Rivas', '1982-07-23', 'Av. Grau 345', '954321678', 1, 'Colegiado CIP 87654', 12, '2014-02-01', 'Indefinido', 8200.00, 'Supervisor de Obras'),
+('51234987', 'Rosa', 'Salazar Pinto', '1993-03-14', 'Jr. Palmeras 456', '987651234', 2, 'Certificación BIM Expert', 7, '2019-04-10', 'Plazo Fijo', 4800.00, 'Diseñadora Arquitectónica'),
+('47800234', 'Miguel', 'Fernández Vega', '1991-01-19', 'Av. Central 300', '987000321', 3, 'Certificación OSHA', 9, '2017-06-15', 'Indefinido', 4300.00, 'Supervisor Eléctrico'),
+('52345678', 'Lucía', 'Campos León', '1997-10-09', 'Calle Jazmín 111', '987654987', 4, 'Curso Topografía con Drones', 3, '2022-02-01', 'Temporal', 2200.00, 'Auxiliar de Campo'),
+('46789123', 'Héctor', 'Morales Díaz', '1989-09-09', 'Jr. Perú 555', '932145678', 1, 'Colegiado CIP 65432', 8, '2016-05-15', 'Indefinido', 7000.00, 'Ingeniero Residente'),
+('40123345', 'Carmen', 'Huamán Tello', '1986-11-12', 'Av. Progreso 333', '987600999', 2, 'Certificación Diseño Sostenible', 10, '2015-08-20', 'Plazo Fijo', 5300.00, 'Arquitecta Senior'),
+('45987654', 'Andrés', 'Quispe Rojas', '1992-12-05', 'Jr. Amazonas 100', '912007654', 3, 'Certificación Siemens Electricidad', 5, '2020-04-15', 'Temporal', 3100.00, 'Técnico Electricista'),
+('47800212', 'Verónica', 'Salas Ruiz', '1994-03-22', 'Calle Unión 321', '999654321', 4, 'Diplomado en Cartografía', 4, '2021-06-10', 'Practicante', 1800.00, 'Topógrafa Asistente'),
+('49012345', 'Ricardo', 'Palomino Díaz', '1983-05-18', 'Av. Libertad 654', '987321654', 1, 'Colegiado CIP 90909', 11, '2013-03-01', 'Indefinido', 7800.00, 'Gerente de Proyectos'),
+('50012367', 'Natalia', 'Ortega Suárez', '1996-07-15', 'Calle Ficus 567', '956789456', 2, 'Curso Diseño Paramétrico', 3, '2022-03-01', 'Temporal', 2500.00, 'Asistente Arquitectónica'),
+('47789001', 'Jorge', 'Torres Alarcón', '1987-09-30', 'Av. La Marina 321', '955666777', 3, 'Certificación ABB', 7, '2019-02-12', 'Indefinido', 3900.00, 'Electricista Industrial'),
+('49654321', 'Elena', 'Vargas Cáceres', '1993-01-02', 'Jr. Los Pinos 88', '987765432', 4, 'Curso de Drones y GPS', 5, '2020-07-01', 'Temporal', 2300.00, 'Asistente Topógrafa'),
+('47987654', 'David', 'Contreras Ruiz', '1984-04-25', 'Calle Sol de Oro 101', '987999111', 1, 'Colegiado CIP 54545', 15, '2010-05-01', 'Indefinido', 8500.00, 'Director de Obras'),
+('50345678', 'Mariana', 'Flores Díaz', '1991-11-21', 'Jr. América 567', '912888999', 2, 'Certificación LEED', 8, '2018-08-20', 'Plazo Fijo', 5200.00, 'Arquitecta Ambiental'),
+('49876543', 'Pedro', 'Vallejos Medina', '1989-02-11', 'Av. Grau 700', '932567123', 3, 'Certificación Energías Renovables', 9, '2017-05-10', 'Indefinido', 4200.00, 'Supervisor Eléctrico'),
+('51239876', 'Tatiana', 'López Rivera', '1998-06-12', 'Calle Lima 999', '987111333', 4, 'Topografía LIDAR', 2, '2023-01-10', 'Practicante', 1600.00, 'Asistente de Campo');
+
+
+
+
+INSERT INTO especialidades (codigo, nombre, descripcion, nivel_cualificacion)
+VALUES
+    ('CONST001', 'Ingeniería Civil', 'Especialidad encargada del diseño, construcción y mantenimiento de infraestructuras como puentes, carreteras, edificios, etc.', 'Avanzado'),
+    ('CONST002', 'Arquitectura', 'Especialidad dedicada al diseño, planificación y supervisión de la construcción de edificios y estructuras.', 'Avanzado'),
+    ('CONST003', 'Electricidad', 'Especialidad relacionada con la instalación, mantenimiento y reparación de sistemas eléctricos en edificios y obras de construcción.', 'Intermedio'),
+    ('CONST004', 'Plomería', 'Especialidad que se encarga de la instalación y mantenimiento de sistemas de tuberías y sistemas hidráulicos en la construcción de edificaciones.', 'Básico'),
+    ('CONST005', 'Estructuras Metálicas', 'Especialidad enfocada en el diseño y la construcción de estructuras de acero y otros metales en la industria de la construcción.', 'Avanzado'),
+    ('CONST006', 'Gestión de Proyectos de Construcción', 'Especialidad que abarca la planificación, coordinación y supervisión de proyectos de construcción, desde la concepción hasta la finalización.', 'Intermedio'),
+    ('CONST007', 'Topografía', 'Especialidad que se dedica a la medición y representación de las características físicas del terreno donde se llevará a cabo una construcción.', 'Básico'),
+    ('CONST008', 'Hidrosanitarios', 'Especialidad en la instalación de sistemas de agua potable, saneamiento y evacuación de aguas residuales en edificaciones y obras.', 'Intermedio'),
+    ('CONST009', 'Control de Calidad en Construcción', 'Especialidad dedicada a asegurar que los materiales y procesos utilizados en la construcción cumplan con las normativas y estándares de calidad.', 'Avanzado'),
+    ('CONST010', 'Seguridad en la Construcción', 'Especialidad que se ocupa de prevenir accidentes laborales y garantizar la seguridad en las obras de construcción mediante la implementación de medidas preventivas.', 'Intermedio');
+
+
+INSERT INTO proyectos (
+    codigo, nombre, direccion, tipo, area_total, cantidad_pisos,
+    fecha_inicio, fecha_fin_estimada, estado, presupuesto_asignado, gerente_id
+) VALUES
+('PRJ001','Torre Central','Av. Los Álamos 123','Comercial',4500,12,'2024-01-10','2025-12-15','En Progreso',2500000,502),
+('PRJ002','Residencial Sol','Calle Los Pinos 45','Residencial',2000,6,'2023-05-05','2024-08-30','En Progreso',1200000,498),
+('PRJ003','Edificio Innovar','Av. Libertad 678','Comercial',3500,10,'2024-03-01','2025-02-28','En Progreso',2000000,500),
+('PRJ004','Complejo Verde','Jr. Los Sauces 234','Residencial',1800,5,'2023-07-10','2024-09-15','En Progreso',1000000,501),
+('PRJ005','Centro Industrial Norte','Av. Perú 345','Industrial',6000,3,'2024-02-15','2025-05-20','En Progreso',3000000,504),
+('PRJ006','Residencial Lomas','Calle San Martín 12','Residencial',2500,7,'2023-09-01','2025-01-30','En Progreso',1500000,499),
+('PRJ007','Torre Miraflores','Av. Los Robles 77','Comercial',4000,15,'2024-01-20','2025-12-01','En Progreso',2800000,503),
+('PRJ008','Edificio Aurora','Jr. Las Magnolias 88','Comercial',3000,9,'2023-10-10','2025-03-15','En Progreso',1900000,505),
+('PRJ009','Residencial Primavera','Av. Los Eucaliptos 22','Residencial',2200,6,'2023-11-01','2025-04-30','En Progreso',1300000,506),
+('PRJ010','Centro Comercial Sur','Calle Los Robles 101','Comercial',5000,12,'2024-03-15','2025-12-20','En Progreso',2700000,507),
+('PRJ011','Torre Norte','Av. Los Cedros 45','Comercial',3500,11,'2024-02-01','2025-09-15','En Progreso',2100000,508),
+('PRJ012','Residencial Sol Naciente','Jr. Los Olivos 33','Residencial',2000,5,'2023-06-01','2024-08-30','En Progreso',1200000,509),
+('PRJ013','Complejo Empresarial','Av. Libertad 200','Comercial',4500,13,'2024-01-10','2025-12-15','En Progreso',2500000,510),
+('PRJ014','Residencial Las Flores','Calle Las Flores 77','Residencial',2300,6,'2023-07-05','2024-10-01','En Progreso',1400000,511),
+('PRJ015','Parque Industrial','Av. Perú 567','Industrial',7000,4,'2024-02-20','2025-06-10','En Progreso',3200000,512),
+('PRJ016','Edificio Horizonte','Jr. Las Magnolias 99','Comercial',3800,10,'2023-09-10','2025-01-30','En Progreso',2200000,513),
+('PRJ017','Residencial Lomas Verdes','Av. Los Álamos 123','Residencial',2500,7,'2023-11-01','2025-03-20','En Progreso',1500000,514),
+('PRJ018','Torre Andina','Calle San José 55','Comercial',4000,12,'2024-01-15','2025-12-15','En Progreso',2800000,515),
+('PRJ019','Edificio Prisma','Av. Los Robles 44','Comercial',3000,9,'2023-10-20','2025-04-10','En Progreso',1900000,516),
+('PRJ020','Residencial Estrella','Jr. Los Sauces 101','Residencial',2100,6,'2023-11-15','2025-05-01','En Progreso',1300000,517),
+('PRJ021','Centro Comercial Norte','Av. Libertad 345','Comercial',4800,12,'2024-02-10','2025-11-20','En Progreso',2600000,518),
+('PRJ022','Torre Pacifico','Calle Los Pinos 200','Comercial',3500,10,'2024-01-25','2025-10-30','En Progreso',2100000,519),
+('PRJ023','Residencial Sol de Oro','Jr. Las Magnolias 45','Residencial',2000,5,'2023-06-15','2024-09-30','En Progreso',1200000,520),
+('PRJ024','Complejo Verde Norte','Av. Los Eucaliptos 55','Residencial',1800,4,'2023-07-10','2024-09-15','En Progreso',1000000,521),
+('PRJ025','Centro Industrial Este','Av. Perú 789','Industrial',6500,3,'2024-03-01','2025-07-01','En Progreso',3100000,522),
+('PRJ026','Residencial Lomas del Sol','Calle San Martín 101','Residencial',2500,7,'2023-09-05','2025-02-28','En Progreso',1500000,523),
+('PRJ027','Torre Miraflores Este','Av. Los Robles 88','Comercial',4000,14,'2024-01-20','2025-12-01','En Progreso',2800000,524),
+('PRJ028','Edificio Aurora Norte','Jr. Las Magnolias 111','Comercial',3000,9,'2023-10-15','2025-03-20','En Progreso',1900000,525),
+('PRJ029','Residencial Primavera Norte','Av. Los Eucaliptos 33','Residencial',2200,6,'2023-11-05','2025-04-30','En Progreso',1300000,526),
+('PRJ030','Centro Comercial Sur Este','Calle Los Robles 123','Comercial',5000,12,'2024-03-20','2025-12-20','En Progreso',2700000,527),
+('PRJ031','Torre Norte Este','Av. Los Cedros 77','Comercial',3500,11,'2024-02-05','2025-09-15','En Progreso',2100000,528),
+('PRJ032','Residencial Sol Naciente Este','Jr. Los Olivos 55','Residencial',2000,5,'2023-06-10','2024-08-30','En Progreso',1200000,529),
+('PRJ033','Complejo Empresarial Este','Av. Libertad 400','Comercial',4500,13,'2024-01-15','2025-12-15','En Progreso',2500000,530),
+('PRJ034','Residencial Las Flores Norte','Calle Las Flores 100','Residencial',2300,6,'2023-07-10','2024-10-01','En Progreso',1400000,531),
+('PRJ035','Parque Industrial Norte','Av. Perú 890','Industrial',7000,4,'2024-02-25','2025-06-10','En Progreso',3200000,532),
+('PRJ036','Edificio Horizonte Norte','Jr. Las Magnolias 121','Comercial',3800,10,'2023-09-15','2025-02-01','En Progreso',2200000,533),
+('PRJ037','Residencial Lomas Verdes Norte','Av. Los Álamos 200','Residencial',2500,7,'2023-11-10','2025-03-20','En Progreso',1500000,534),
+('PRJ038','Torre Andina Norte','Calle San José 77','Comercial',4000,12,'2024-01-20','2025-12-15','En Progreso',2800000,535),
+('PRJ039','Edificio Prisma Norte','Av. Los Robles 55','Comercial',3000,9,'2023-10-25','2025-04-15','En Progreso',1900000,536),
+('PRJ040','Residencial Estrella Norte','Jr. Los Sauces 121','Residencial',2100,6,'2023-11-20','2025-05-01','En Progreso',1300000,537),
+('PRJ041','Centro Comercial Norte Este','Av. Libertad 567','Comercial',4800,12,'2024-02-15','2025-11-20','En Progreso',2600000,538),
+('PRJ042','Torre Pacifico Este','Calle Los Pinos 222','Comercial',3500,10,'2024-01-30','2025-10-30','En Progreso',2100000,539),
+('PRJ043','Residencial Sol de Oro Este','Jr. Las Magnolias 66','Residencial',2000,5,'2023-06-20','2024-09-30','En Progreso',1200000,540),
+('PRJ044','Complejo Verde Norte Este','Av. Los Eucaliptos 77','Residencial',1800,4,'2023-07-15','2024-09-15','En Progreso',1000000,501),
+('PRJ045','Centro Industrial Este Norte','Av. Perú 901','Industrial',6500,3,'2024-03-05','2025-07-01','En Progreso',3100000,502),
+('PRJ046','Residencial Lomas del Sol Norte','Calle San Martín 123','Residencial',2500,7,'2023-09-10','2025-02-28','En Progreso',1500000,503),
+('PRJ047','Torre Miraflores Este Norte','Av. Los Robles 101','Comercial',4000,14,'2024-01-25','2025-12-01','En Progreso',2800000,504),
+('PRJ048','Edificio Aurora Norte Este','Jr. Las Magnolias 141','Comercial',3000,9,'2023-10-20','2025-03-25','En Progreso',1900000,505),
+('PRJ049','Residencial Primavera Norte Este','Av. Los Eucaliptos 44','Residencial',2200,6,'2023-11-10','2025-04-30','En Progreso',1300000,506),
+('PRJ050','Centro Comercial Sur Este Norte','Calle Los Robles 150','Comercial',5000,12,'2024-03-25','2025-12-20','En Progreso',2700000,507);
+
+
+
+INSERT INTO proveedores (codigo, nombre, direccion, telefono, correo, tipo
+) VALUES
+('PRV001','Construmat S.A.','Av. Industrial 123','987654321','ventas@construmat.com','Materiales'),
+('PRV002','Herrería del Norte','Calle Los Robles 45','987654322','contacto@herreriadelnorte.com','Materiales'),
+('PRV003','Acero y Cía','Av. Libertad 200','987654323','ventas@acero.com','Materiales'),
+('PRV004','Maderas del Sur','Jr. Las Flores 55','987654324','info@maderasdelsur.com','Materiales'),
+('PRV005','Pinturas y Más','Calle San Martín 77','987654325','ventas@pinturasy.mas','Materiales'),
+('PRV006','Cemento Perú','Av. Los Álamos 101','987654326','contacto@cementoperu.com','Materiales'),
+('PRV007','Electricidad Moderna','Jr. Los Sauces 33','987654327','ventas@electricidadmoderna.com','Materiales'),
+('PRV008','Plomería Integral','Calle Los Pinos 88','987654328','contacto@plomeria.com','Materiales'),
+('PRV009','Vidrios y Aluminio S.A.','Av. Perú 123','987654329','ventas@vidriosyaluminio.com','Materiales'),
+('PRV010','Herramientas Global','Jr. Las Magnolias 22','987654330','info@herramientasglobal.com','Herramientas'),
+('PRV011','Hormigones Modernos','Av. Libertad 345','987654331','ventas@hormigones.com','Materiales'),
+('PRV012','Tuberías del Norte','Calle Los Olivos 44','987654332','contacto@tuberiasnorte.com','Materiales'),
+('PRV013','Acabados Premium','Av. Los Robles 55','987654333','ventas@acabadospremium.com','Materiales'),
+('PRV014','Iluminación Integral','Jr. Los Sauces 66','987654334','info@iluminacionintegral.com','Materiales'),
+('PRV015','Pisos y Azulejos','Calle San José 77','987654335','ventas@pisosyazulejos.com','Materiales'),
+('PRV016','Carpintería Moderna','Av. Los Cedros 88','987654336','contacto@carpinteriamoderna.com','Materiales'),
+('PRV017','Maquinaria Pesada S.A.','Jr. Las Magnolias 101','987654337','ventas@maquinariapesada.com','Maquinaria'),
+('PRV018','Seguridad Industrial','Av. Libertad 400','987654338','contacto@seguridadindustrial.com','Materiales'),
+('PRV019','Aceros del Sur','Calle Los Pinos 123','987654339','ventas@acerosdelsur.com','Materiales'),
+('PRV020','Vidrios y Cristales','Av. Los Robles 101','987654340','info@vidriosycristales.com','Materiales'),
+('PRV021','Hormigones del Norte','Jr. Los Olivos 121','987654341','ventas@hormigonesnorte.com','Materiales'),
+('PRV022','Materiales Globales','Calle San Martín 150','987654342','contacto@materialesglobales.com','Materiales'),
+('PRV023','Pinturas y Decoración','Av. Perú 200','987654343','ventas@pinturasydecoracion.com','Materiales'),
+('PRV024','Tuberías Modernas','Jr. Las Magnolias 150','987654344','contacto@tuberiasmodernas.com','Materiales'),
+('PRV025','Maquinaria y Herramientas S.A.','Av. Los Álamos 200','987654345','ventas@maquinariayherramientas.com','Maquinaria'),
+('PRV026','Acabados Norte','Calle Los Robles 200','987654346','info@acabadosnorte.com','Materiales'),
+('PRV027','Carpintería Sur','Av. Libertad 500','987654347','ventas@carpinteriasur.com','Materiales'),
+('PRV028','Iluminación Norte','Jr. Los Sauces 200','987654348','contacto@iluminacionnorte.com','Materiales'),
+('PRV029','Vidrios Modernos','Av. Perú 250','987654349','ventas@vidriosmodernos.com','Materiales'),
+('PRV030','Pisos y Cerámicos','Calle San José 200','987654350','info@pisosyceramicos.com','Materiales'),
+('PRV031','Cemento Global','Av. Los Cedros 150','987654351','ventas@cementoglobal.com','Materiales'),
+('PRV032','Acero Integral','Jr. Las Magnolias 201','987654352','contacto@acerointegral.com','Materiales'),
+('PRV033','Maderas Norte','Av. Los Robles 250','987654353','ventas@maderasnorte.com','Materiales'),
+('PRV034','Herramientas Modernas','Calle Los Pinos 250','987654354','info@herramientasmodernas.com','Herramientas'),
+('PRV035','Plomería Sur','Av. Perú 300','987654355','ventas@plomeriasur.com','Materiales'),
+('PRV036','Electricidad Global','Jr. Los Sauces 250','987654356','contacto@electricidadglobal.com','Materiales'),
+('PRV037','Vidrios Norte','Av. Libertad 600','987654357','ventas@vidriosnorte.com','Materiales'),
+('PRV038','Carpintería Global','Calle San Martín 300','987654358','info@carpinteriaglobal.com','Materiales'),
+('PRV039','Acabados Sur','Av. Los Álamos 300','987654359','ventas@acabadossur.com','Materiales'),
+('PRV040','Pinturas Norte','Jr. Las Magnolias 300','987654360','contacto@pinturasnorte.com','Materiales'),
+('PRV041','Maquinaria Pesada Norte','Av. Los Cedros 250','987654361','ventas@maquinariapesadanorte.com','Maquinaria'),
+('PRV042','Seguridad Global','Calle Los Robles 300','987654362','info@seguridadglobal.com','Materiales'),
+('PRV043','Hormigones Sur','Av. Perú 350','987654363','ventas@hormigonessur.com','Materiales'),
+('PRV044','Materiales del Norte','Jr. Los Olivos 300','987654364','contacto@materialesdelnorte.com','Materiales'),
+('PRV045','Tuberías del Sur','Av. Los Robles 350','987654365','ventas@tuberiasdelsur.com','Materiales'),
+('PRV046','Vidrios Globales','Calle San José 350','987654366','info@vidriosglobales.com','Materiales'),
+('PRV047','Acabados Globales','Av. Libertad 700','987654367','ventas@acabadosglobales.com','Materiales'),
+('PRV048','Carpintería del Norte','Jr. Los Sauces 350','987654368','contacto@carpinteriadelnorte.com','Materiales'),
+('PRV049','Herramientas Sur','Av. Los Álamos 400','987654369','ventas@herramientassur.com','Herramientas'),
+('PRV050','Maquinaria Global','Calle Los Pinos 400','987654370','info@maquinariaglobal.com','Maquinaria');
+
+
+INSERT INTO maquinaria (codigo, nombre, marca, modelo, anio_fabricacion, horas_uso, valor_adquisicion, valor_actual, estado_operativo, ubicacion_actual)
+VALUES
+    ('MACH001', 'Excavadora Hidráulica', 'Caterpillar', '320D2', 2018, 3500, 150000.00, 120000.00, 'Operativa', 'Obra A - Zona Norte'),
+    ('MACH002', 'Grúa Móvil', 'Terex', 'AC 100', 2015, 4500, 200000.00, 170000.00, 'Operativa', 'Obra B - Zona Este'),
+    ('MACH003', 'Mezcladora de Concreto', 'Volvo', 'EC950F', 2020, 1200, 75000.00, 68000.00, 'Operativa', 'Obra C - Zona Sur'),
+    ('MACH004', 'Compactadora de Suelo', 'Komatsu', 'D65PX-17', 2017, 5000, 95000.00, 80000.00, 'En Mantenimiento', 'Obra D - Zona Oeste'),
+    ('MACH005', 'Retroexcavadora', 'JCB', '3CX', 2019, 2000, 45000.00, 43000.00, 'Operativa', 'Obra E - Zona Centro'),
+    ('MACH006', 'Generador Eléctrico', 'Honda', 'EP10000', 2021, 300, 15000.00, 14000.00, 'Operativa', 'Obra F - Zona Norte'),
+    ('MACH007', 'Camión Volquete', 'Mercedes-Benz', 'Arocs 3340', 2016, 8000, 120000.00, 95000.00, 'Operativa', 'Obra G - Zona Sur'),
+    ('MACH008', 'Bomba de Concreto', 'Putzmeister', 'M46-5', 2017, 4000, 180000.00, 160000.00, 'Operativa', 'Obra H - Zona Este'),
+    ('MACH009', 'Compactadora de Asfalto', 'Liebherr', 'LTS 250', 2018, 1500, 65000.00, 62000.00, 'Operativa', 'Obra I - Zona Oeste'),
+    ('MACH010', 'Pala Cargadora', 'CASE', '570N', 2020, 1000, 85000.00, 80000.00, 'Operativa', 'Obra J - Zona Norte');
+
+
+
+-- Fases para el proyecto 'PROY001' (Proyecto A)
+INSERT INTO fases (id_proyecto, codigo, nombre, fecha_inicio, fecha_fin, porcentaje_avance, presupuesto_asignado, fase_dependiente_id)
+VALUES
+    (1, 'F01', 'Planificación', '2024-01-10', '2024-03-01', 0.00, 50000.00, NULL),  -- Fase 1
+    (1, 'F02', 'Diseño', '2024-03-02', '2024-06-15', 0.00, 100000.00, 1),          -- Fase 2 (dependiente de Fase 1)
+    (1, 'F03', 'Construcción', '2024-06-16', '2025-06-30', 0.00, 1500000.00, 2),     -- Fase 3 (dependiente de Fase 2)
+    (1, 'F04', 'Finalización', '2025-07-01', '2025-12-15', 0.00, 500000.00, 3);      -- Fase 4 (dependiente de Fase 3)
+
+-- Fases para el proyecto 'PROY002' (Residencial Sol) - Unificado con el mismo id_proyecto
+INSERT INTO fases (id_proyecto, codigo, nombre, fecha_inicio, fecha_fin, porcentaje_avance, presupuesto_asignado, fase_dependiente_id)
+VALUES
+    (2, 'F05', 'Planificación', '2023-05-05', '2023-06-15', 0.00, 40000.00, NULL),   -- Fase 1
+    (2, 'F06', 'Diseño', '2023-06-16', '2023-09-01', 10.00, 80000.00, 5),           -- Fase 2 (dependiente de Fase 1)
+    (2, 'F07', 'Construcción', '2023-09-02', '2024-07-15', 5.00, 600000.00, 6),     -- Fase 3 (dependiente de Fase 2)
+    (2, 'F08', 'Finalización', '2024-07-16', '2024-08-30', 0.00, 200000.00, 7);     -- Fase 4 (dependiente de Fase 3)
+
+-- Fases para el proyecto 'PROY003' (Edificio Innovar) - Unificado con el mismo id_proyecto
+INSERT INTO fases (id_proyecto, codigo, nombre, fecha_inicio, fecha_fin, porcentaje_avance, presupuesto_asignado, fase_dependiente_id)
+VALUES
+    (3, 'F09', 'Planificación', '2024-03-01', '2024-04-30', 0.00, 60000.00, NULL),  -- Fase 1
+    (3, 'F10', 'Diseño', '2024-05-01', '2024-08-15', 0.00, 120000.00, 9),          -- Fase 2 (dependiente de Fase 1)
+    (3, 'F11', 'Construcción', '2024-08-16', '2025-01-15', 0.00, 1800000.00, 10),    -- Fase 3 (dependiente de Fase 2)
+    (3, 'F12', 'Finalización', '2025-01-16', '2025-02-28', 0.00, 300000.00, 11);     -- Fase 4 (dependiente de Fase 3)
+
+-- Fases para el proyecto 'PROY004' (Residencial Lomas) - Unificado con el mismo id_proyecto
+INSERT INTO fases (id_proyecto, codigo, nombre, fecha_inicio, fecha_fin, porcentaje_avance, presupuesto_asignado, fase_dependiente_id)
+VALUES
+    (4, 'F13', 'Planificación', '2023-09-01', '2023-10-15', 0.00, 45000.00, NULL),  -- Fase 1
+    (4, 'F14', 'Diseño', '2023-10-16', '2024-01-15', 5.00, 90000.00, 13),           -- Fase 2 (dependiente de Fase 1)
+    (4, 'F15', 'Construcción', '2024-01-16', '2024-12-31', 0.00, 900000.00, 14),     -- Fase 3 (dependiente de Fase 2)
+    (4, 'F16', 'Finalización', '2025-01-01', '2025-01-30', 0.00, 300000.00, 15);     -- Fase 4 (dependiente de Fase 3)
+
+
+INSERT INTO planos (
+    codigo, titulo, tipo, fecha_creacion, version, responsable_id, escala, formato_archivo, ubicacion_archivo
+) VALUES
+    ('PLN001', 'Plano de Fundación Torre Central', 'Estructural', '2024-02-01', 'v1.0', 502, '1:100', 'PDF', 'path/to/file/fundacion_torre_central.pdf'),
+    ('PLN002', 'Plano de Distribución Torre Central', 'Arquitectónico', '2024-02-05', 'v1.0', 502, '1:50', 'DWG', 'path/to/file/distribucion_torre_central.dwg'),
+    ('PLN003', 'Plano de Instalación Eléctrica Torre Central', 'Eléctrico', '2024-02-10', 'v1.0', 503, '1:200', 'PDF', 'path/to/file/instalacion_electrica_torre_central.pdf'),
+    ('PLN004', 'Plano de Sistemas Sanitarios Torre Central', 'Sanitario', '2024-02-12', 'v1.0', 504, '1:100', 'DWG', 'path/to/file/sistemas_sanitarios_torre_central.dwg'),
+    ('PLN005', 'Plano de Fundación Residencial Sol', 'Estructural', '2023-07-10', 'v1.0', 505, '1:100', 'PDF', 'path/to/file/fundacion_residencial_sol.pdf');
+
+
+INSERT INTO materiales (
+    codigo, descripcion, categoria, unidad_medida, especificaciones, proveedor_preferido_id
+) VALUES
+    ('MAT001', 'Cemento Portland 42.5', 'Materiales de construcción', 'kg', 'Cemento de alta resistencia, ideal para estructuras.', 1),
+    ('MAT002', 'Acero Inoxidable 304', 'Metales', 'kg', 'Acero inoxidable para uso estructural, resistente a la corrosión.', 2),
+    ('MAT003', 'Pintura Ecológica', 'Acabados', 'litros', 'Pintura sin compuestos tóxicos, para interiores y exteriores.', 3),
+    ('MAT004', 'Madera Tratada', 'Maderas', 'm3', 'Madera tratada para uso en estructuras exteriores.', 1),
+    ('MAT005', 'Ladrillo Cerámico', 'Materiales de construcción', 'unidad', 'Ladrillo de alta resistencia para muros de carga.', 4);
+
+INSERT INTO maquinaria (
+    codigo, nombre, marca, modelo, anio_fabricacion, horas_uso, valor_adquisicion, valor_actual, estado_operativo, ubicacion_actual
+) VALUES
+    ('MAQ001', 'Excavadora Caterpillar', 'Caterpillar', '320D', 2018, 1200, 500000.00, 450000.00, 'Operativa', 'Planta A'),
+    ('MAQ002', 'Grúa Terex', 'Terex', 'T100', 2015, 2000, 350000.00, 300000.00, 'En reparación', 'Obra 3'),
+    ('MAQ003', 'Bulldozer Komatsu', 'Komatsu', 'D65EX', 2020, 800, 700000.00, 650000.00, 'Operativa', 'Obra 1'),
+    ('MAQ004', 'Carretilla elevadora Hyster', 'Hyster', 'S50XM', 2019, 1500, 25000.00, 20000.00, 'Operativa', 'Planta B'),
+    ('MAQ005', 'Motoniveladora Volvo', 'Volvo', 'G930', 2017, 1300, 220000.00, 200000.00, 'En reparación', 'Obra 2');
+
+INSERT INTO inventario (
+    id_material, almacen, ubicacion, cantidad_stock, precio_unitario, fecha_ultima_entrada, stock_minimo
+) VALUES
+    (1, 'Almacén A', 'Estante 5', 150.00, 15.50, '2024-10-01', 50.00),
+    (2, 'Almacén B', 'Sección 3', 100.00, 35.00, '2024-09-15', 30.00),
+    (3, 'Almacén A', 'Estante 8', 75.00, 25.00, '2024-10-05', 20.00),
+    (4, 'Almacén C', 'Estante 2', 200.00, 5.75, '2024-09-30', 100.00),
+    (5, 'Almacén A', 'Estante 4', 50.00, 10.00, '2024-10-10', 25.00);
+
+	
+INSERT INTO compras (
+    numero_orden, fecha, id_proveedor, condiciones_pago, fecha_entrega, estado, id_proyecto
+) VALUES
+    ('ORD001', '2024-10-05', 1, '30 días después de la entrega', '2024-10-15', 'Pendiente', 1),
+    ('ORD002', '2024-10-10', 2, '15 días después de la entrega', '2024-10-20', 'Completada', 2),
+    ('ORD003', '2024-10-12', 3, '60 días después de la entrega', '2024-12-12', 'Pendiente', 3),
+    ('ORD004', '2024-10-15', 1, 'Pago anticipado', '2024-10-25', 'Pendiente', 4),
+    ('ORD005', '2024-10-18', 4, '30 días después de la entrega', '2024-10-28', 'Cancelada', 5);
+
+INSERT INTO detalle_compra (id_compra, id_material, cantidad, precio_unitario) VALUES
+    (1, 101, 50.00, 15.50),  -- Compra de 50 unidades del material con id_material = 101
+    (1, 102, 100.00, 35.00), -- Compra de 100 unidades del material con id_material = 102
+    (1, 103, 75.00, 25.00);  -- Compra de 75 unidades del material con id_material = 103
+
+INSERT INTO herramientas (codigo, nombre, marca, modelo, anio_fabricacion, estado_operativo, responsable_id) VALUES
+    ('HERR001', 'Taladro Eléctrico', 'Bosch', 'GSB 180-LI', 2023, 'Operativo', 101),
+    ('HERR002', 'Sierra Circular', 'Makita', 'HS7600', 2022, 'En reparación', 102),
+    ('HERR003', 'Amoladora Angular', 'DeWalt', 'DWE402', 2021, 'Operativo', 103),
+    ('HERR004', 'Perforadora', 'Hilti', 'DD 350-CA', 2022, 'Operativo', 104),
+    ('HERR005', 'Soldadora', 'Lincoln', 'PowerMIG 210 MP', 2021, 'Fuera de servicio', 105),
+    ('HERR006', 'Compresor de Aire', 'Atlas Copco', 'XAS 185', 2023, 'Operativo', 106),
+    ('HERR007', 'Cortadora de Metales', 'Bosch', 'GCO 2000', 2020, 'Operativo', 107),
+    ('HERR008', 'Generador Eléctrico', 'Honda', 'EU2200i', 2023, 'En reparación', 108),
+    ('HERR009', 'Cortadora de Pavimento', 'Makita', 'PC5000C', 2022, 'Operativo', 109),
+    ('HERR010', 'Martillo Perforador', 'Bosch', 'GBH 2-28 DFV', 2021, 'Operativo', 110);
+
+INSERT INTO presupuestos (
+    id_proyecto, codigo_partida, descripcion, unidad, cantidad_presupuestada, precio_unitario, subtotal, observaciones
+) VALUES
+    (1, 'P1', 'Excavación de terreno', 'm²', 1000.00, 50.00, 50000.00, 'Excavación para cimientos de la torre.'),
+    (1, 'P2', 'Estructura de concreto', 'm³', 300.00, 150.00, 45000.00, 'Estructura de concreto armado para el primer nivel.'),
+    (2, 'P3', 'Instalación eléctrica', 'm²', 500.00, 40.00, 20000.00, 'Instalación de cableado y paneles eléctricos en todo el edificio.'),
+    (2, 'P4', 'Pintura interior', 'm²', 2000.00, 12.50, 25000.00, 'Pintura de paredes internas con pintura a base de agua.'),
+    (3, 'P5', 'Instalación de ventanas', 'unidad', 50.00, 100.00, 5000.00, 'Instalación de ventanas de PVC de alta calidad.');
+
+
+
+INSERT INTO gastos (
+    fecha, tipo_gasto, descripcion, monto, factura, 
+    id_proveedor, id_proyecto, id_fase, responsable_aprobacion_id
+) 
+VALUES
+    ('2025-10-01', 'Material de construcción', 'Compra de cemento y bloques', 5000.00, 'FAC001', 1, 1, 1, 101),
+    ('2025-10-05', 'Servicios', 'Consultoría en ingeniería', 3000.00, 'FAC002', 2, 2, 2, 102),
+    ('2025-09-20', 'Alquiler', 'Alquiler de maquinaria pesada', 1500.00, 'FAC003', 3, 3, 3, 103),
+    ('2025-09-25', 'Material de oficina', 'Compra de escritorios y sillas', 800.00, 'FAC004', 4, 4, 4, 104),
+    ('2025-08-15', 'Servicios', 'Asesoría legal para el proyecto', 1200.00, 'FAC005', 5, 5, 5, 105),
+    ('2025-07-30', 'Otros', 'Gastos imprevistos de transporte', 700.00, 'FAC006', 6, 6, 6, 106);
+
+INSERT INTO permisos_legales (
+    codigo, tipo_permiso, id_proyecto, entidad_emisora, 
+    fecha_solicitud, fecha_emision, fecha_vencimiento, 
+    responsable_id, estado
+) 
+VALUES
+    ('PERM001', 'Autorización de obra', 1, 'Gobierno Municipal', '2025-10-01', '2025-10-05', '2026-10-05', 101, 'Activo'),
+    ('PERM002', 'Licencia ambiental', 2, 'Ministerio de Medio Ambiente', '2025-09-15', '2025-09-20', '2026-09-20', 102, 'Activo'),
+    ('PERM003', 'Permiso de construcción', 3, 'Gobierno Estatal', '2025-08-01', '2025-08-10', '2026-08-10', 103, 'Vencido'),
+    ('PERM004', 'Permiso de impacto vial', 4, 'Ministerio de Transportes', '2025-07-10', '2025-07-12', '2026-07-12', 104, 'Activo'),
+    ('PERM005', 'Autorización de uso de suelo', 5, 'Gobierno Municipal', '2025-06-05', '2025-06-08', '2026-06-08', 105, 'Activo'),
+    ('PERM006', 'Permiso de excavación', 6, 'Ministerio de Obras Públicas', '2025-05-15', '2025-05-20', '2026-05-20', 106, 'Activo');
+
+
+-- Insertar materiales
+INSERT INTO Recursos (tipo, descripcion) 
+VALUES 
+('material', 'Cemento'),
+('material', 'Acero'),
+('material', 'Hormigón');
+
+-- Insertar maquinaria
+INSERT INTO Recursos (tipo, descripcion) 
+VALUES 
+('maquinaria', 'Excavadora'),
+('maquinaria', 'Grúa');
+
+-- Insertar personal
+INSERT INTO Recursos (tipo, descripcion) 
+VALUES 
+('personal', 'Ingeniero Civil'),
+('personal', 'Albañil');
+
+CREATE TABLE Asignaciones (
+    id_asignacion INT AUTO_INCREMENT PRIMARY KEY,
+    id_fase INT,
+    id_recurso INT,
+    fecha_asignacion DATE,
+    FOREIGN KEY (id_fase) REFERENCES Fases(id_fase),
+    FOREIGN KEY (id_recurso) REFERENCES Recursos(id_recurso)
+);
+
+CREATE TABLE Recursos (
+    id_recurso INT AUTO_INCREMENT PRIMARY KEY,
+    tipo ENUM('material', 'maquinaria', 'personal') NOT NULL,
+    descripcion VARCHAR(255) NOT null
+    );
+
+CREATE TABLE asignaciones_personal (
+    id_asignacion INT AUTO_INCREMENT PRIMARY KEY,
+    id_empleado INT NOT NULL,
+    id_proyecto INT NOT NULL,
+    id_fase INT NULL,
+    rol VARCHAR(50),
+    fecha_asignacion DATE,
+    horas_asignadas DECIMAL(10,2),
+    FOREIGN KEY (id_empleado) REFERENCES empleados(id_empleado),
+    FOREIGN KEY (id_proyecto) REFERENCES proyectos(id_proyecto),
+    FOREIGN KEY (id_fase) REFERENCES fases(id_fase)
+);
+
+CREATE TABLE IF NOT EXISTS alertas_inventario (
+    id_alerta INT AUTO_INCREMENT PRIMARY KEY,
+    id_material INT NOT NULL,
+    fecha_alerta DATETIME DEFAULT CURRENT_TIMESTAMP,
+    mensaje VARCHAR(255),
+    estado ENUM('Pendiente', 'Revisado') DEFAULT 'Pendiente',
+    FOREIGN KEY (id_material) REFERENCES materiales(id_material)
+);
+
+
+CREATE TABLE IF NOT EXISTS asignaciones_maquinaria (
+    id_asignacion INT AUTO_INCREMENT PRIMARY KEY,
+    id_maquinaria INT NOT NULL,
+    id_proyecto INT NOT NULL,
+    id_fase INT,
+    fecha_inicio DATE NOT NULL,
+    fecha_fin DATE NOT NULL,
+    estado ENUM('Activa', 'Finalizada') DEFAULT 'Activa',
+    FOREIGN KEY (id_maquinaria) REFERENCES maquinaria(id_maquinaria),
+    FOREIGN KEY (id_proyecto) REFERENCES proyectos(id_proyecto),
+    FOREIGN KEY (id_fase) REFERENCES fases(id_fase)
+);
+
