@@ -1,0 +1,618 @@
+USE CONSTRUDATA;
+
+--- 1.¿Cuáles son todas las fases de un proyecto específico?
+
+SELECT f.codigo, f.nombre, f.fecha_inicio, f.fecha_fin, f.porcentaje_avance, f.presupuesto_asignado
+FROM fases f
+JOIN proyectos p ON f.id_proyecto = p.id_proyecto
+WHERE p.codigo = 'PRJ001'; 
+
+--- 2.	¿Qué proyectos tienen un presupuesto menor a 500,000?"
+
+SELECT codigo, nombre, presupuesto_asignado
+FROM proyectos
+WHERE presupuesto_asignado < 500000;
+
+--- 3.	¿Qué materiales son de categoría "Estructural" y tienen stock bajo? ****
+
+SELECT m.codigo, m.descripcion, i.cantidad_stock
+FROM materiales m
+LEFT JOIN inventario i ON m.id_material = i.id_material
+WHERE m.categoria = 'Estructural'
+AND (i.cantidad_stock < i.stock_minimo OR i.cantidad_stock IS NULL);
+
+SELECT * FROM materiales LIMIT 10;
+SELECT * FROM inventario LIMIT 10;
+
+SELECT m.id_material, m.codigo, i.id_material, i.cantidad_stock
+FROM materiales m
+LEFT JOIN inventario i ON m.id_material = i.id_material
+LIMIT 10;
+
+--- 4.	¿Cuáles son los empleados que son arquitectos o ingenieros civiles?
+
+SELECT dni, nombres, apellidos, cargo
+FROM empleados
+WHERE cargo IN ('arquitecta', 'Ingeniero Civil');
+
+--- 5. ¿Qué proyectos inician entre el 1 de enero y el 30 de junio de 2024?
+
+
+SELECT codigo, nombre, fecha_inicio
+FROM proyectos
+WHERE fecha_inicio BETWEEN '2024-01-01' AND '2024-06-30';
+
+--- 6. ¿Cuáles son los planos de tipo Arquitectónico, Estructural o Eléctrico?
+
+SELECT codigo, titulo, tipo
+FROM planos
+WHERE tipo IN ('Arquitectónico', 'Estructural', 'Eléctrico');
+
+--- 7. ¿Qué proyectos tienen descripciones que contienen las palabras "residencial" o "apartamentos"?
+
+SELECT codigo, nombre, direccion, tipo, area_total
+FROM proyectos
+WHERE LOWER(tipo) LIKE 'residencial' 
+
+--- 8. ¿Cuáles son las fases que ya tienen fecha real de inicio?
+
+SELECT f.codigo, f.nombre, f.fecha_inicio
+FROM fases f
+WHERE f.fecha_inicio IS NOT NULL;
+
+--- 9. ¿Cuáles son los empleados ordenados por especialidad y años de experiencia?
+
+SELECT dni, nombres, especialidad_id, anios_experiencia
+FROM empleados
+ORDER BY especialidad_id, anios_experiencia DESC;
+
+--- 10. ¿Cuál es el costo total de materiales por proyecto?
+
+SELECT p.codigo AS proyecto_codigo, 
+       SUM(dc.cantidad * dc.precio_unitario) AS costo_total_materiales
+FROM compras c
+LEFT JOIN detalle_compra dc ON c.id_compra = dc.id_compra
+LEFT JOIN materiales m ON dc.id_material = m.id_material
+LEFT JOIN proyectos p ON c.id_proyecto = p.id_proyecto
+
+
+--- AsignarRecursosAFase
+
+DELIMITER //
+
+CREATE PROCEDURE AsignarRecursosAFase(
+    IN fase_id INT,
+    IN recursos_ids TEXT
+)
+BEGIN
+   
+    DECLARE i INT DEFAULT 1;
+    DECLARE recurso_id INT;
+
+   
+    WHILE i <= LENGTH(recursos_ids) DO
+        SET recurso_id = CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(recursos_ids, ',', i), ',', -1) AS UNSIGNED);
+
+       
+        INSERT INTO Asignaciones (id_fase, id_recurso, fecha_asignacion) 
+        VALUES (fase_id, recurso_id, CURDATE());
+
+       
+        SET i = i + 1;
+    END WHILE;
+END //
+
+DELIMITER ;
+
+
+SELECT f.nombre AS fase, r.descripcion AS recurso, r.tipo
+FROM Asignaciones a
+JOIN Fases f ON a.id_fase = f.id_fase
+JOIN Recursos r ON a.id_recurso = r.id_recurso
+WHERE f.id_fase = 1;
+
+
+--- ActualizarAvanceFase
+
+DELIMITER //
+
+CREATE PROCEDURE ActualizarAvanceFase(
+    IN fase_id INT,
+    IN porcentaje_avance DECIMAL(5, 2)
+)
+BEGIN
+    -- Verificar que el porcentaje de avance esté entre 0 y 100
+    IF porcentaje_avance < 0 OR porcentaje_avance > 100 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El porcentaje de avance debe estar entre 0 y 100';
+    ELSE
+        -- Actualizar el avance de la fase en la tabla Fases
+        UPDATE Fases
+        SET avance = porcentaje_avance
+        WHERE id_fase = fase_id;
+    END IF;
+END //
+
+DELIMITER ;
+
+SELECT id_fase, nombre, porcentaje_avance
+FROM Fases
+WHERE id_proyecto = 1;
+
+--- GenerarOrdenCompra
+
+
+DELIMITER //
+
+CREATE PROCEDURE GenerarOrdenCompra(
+    IN fase_id INT,
+    IN materiales_ids TEXT,
+    IN cantidades TEXT,
+    IN proveedor_id INT
+)
+BEGIN
+    
+    DECLARE i INT DEFAULT 1;
+    DECLARE material_id INT;
+    DECLARE cantidad INT;
+    DECLARE precio DECIMAL(15, 2);
+    DECLARE total DECIMAL(15, 2) DEFAULT 0;
+
+    
+    INSERT INTO Compras (id_proveedor, fecha) 
+    VALUES (proveedor_id, CURDATE());
+
+    
+    SET @orden_id = LAST_INSERT_ID();
+
+    
+    WHILE i <= LENGTH(materiales_ids) DO
+      
+        SET material_id = CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(materiales_ids, ',', i), ',', -1) AS UNSIGNED);
+        SET cantidad = CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(cantidades, ',', i), ',', -1) AS UNSIGNED);
+
+     
+        SELECT precio_unitario INTO precio FROM Recursos WHERE id_recurso = material_id;
+
+       
+        INSERT INTO Detalle_Compra (id_orden, id_material, cantidad, precio_unitario) 
+        VALUES (@orden_id, material_id, cantidad, precio);
+
+        
+        SET total = total + (precio * cantidad);
+
+        
+        SET i = i + 1;
+    END WHILE;
+
+    
+    UPDATE Compras 
+    SET total = total
+    WHERE id_orden = @orden_id;
+
+END //
+
+DELIMITER ;
+
+
+SELECT numero_orden, id_proveedor, fecha, estado
+FROM Compras
+WHERE id_proveedor = 1;
+
+--- triggers
+
+---	TR_ActualizarInventarioMateriales: 
+
+DELIMITER $$
+
+CREATE TRIGGER TR_ActualizarInventarioMateriales
+AFTER INSERT ON detalle_compra
+FOR EACH ROW
+BEGIN
+    DECLARE existe INT;
+
+    SELECT COUNT(*) INTO existe
+    FROM inventario
+    WHERE id_material = NEW.id_material;
+
+    IF existe > 0 THEN
+        UPDATE inventario
+        SET 
+            cantidad_stock = cantidad_stock + NEW.cantidad,
+            fecha_ultima_entrada = CURDATE(),
+            precio_unitario = NEW.precio_unitario
+        WHERE id_material = NEW.id_material;
+    else
+    
+        INSERT INTO inventario (id_material, cantidad_stock, precio_unitario, fecha_ultima_entrada)
+        VALUES (NEW.id_material, NEW.cantidad, NEW.precio_unitario, CURDATE());
+    END IF;
+END$$
+
+DELIMITER ;
+
+
+INSERT INTO materiales (codigo, descripcion, categoria, unidad_medida, proveedor_preferido_id)
+VALUES ('MAT-001', 'Cemento gris 50kg', 'Construcción', 'saco', 1);
+
+INSERT INTO compras (numero_orden, fecha, id_proveedor, condiciones_pago, fecha_entrega, estado, id_proyecto)
+VALUES ('OC-001', CURDATE(), 1, 'Contado', CURDATE(), 'Recibida', NULL);
+
+INSERT INTO detalle_compra (id_compra, id_material, cantidad, precio_unitario)
+VALUES (1, 1, 100, 25000);
+
+SELECT * FROM inventario;
+
+INSERT INTO detalle_compra (id_compra, id_material, cantidad, precio_unitario)
+VALUES (1, 1, 50, 26000);
+
+---	TR_RecalcularPresupuesto: 
+
+DELIMITER $$
+
+CREATE TRIGGER TR_RecalcularPresupuesto
+AFTER INSERT ON gastos
+FOR EACH ROW
+BEGIN
+    UPDATE proyectos
+    SET presupuesto_asignado = presupuesto_asignado - NEW.monto
+    WHERE id_proyecto = NEW.id_proyecto;
+END$$
+
+DELIMITER ;
+
+ALTER TABLE proyectos ADD COLUMN presupuesto_restante DECIMAL(15,2);
+
+
+DELIMITER $$
+
+CREATE TRIGGER TR_RecalcularPresupuesto
+AFTER INSERT ON gastos
+FOR EACH ROW
+BEGIN
+    UPDATE proyectos
+    SET presupuesto_restante = presupuesto_restante - NEW.monto
+    WHERE id_proyecto = NEW.id_proyecto;
+END$$
+
+DELIMITER ;
+
+SELECT * FROM proyectos;
+
+
+INSERT INTO proyectos (codigo, nombre, tipo, presupuesto_asignado)
+VALUES ('PRJ-051', 'Construcción Casa', 'Residencial', 1000000)
+
+
+---	TR_VerificarDependenciasFases: 
+
+DELIMITER $$
+
+CREATE TRIGGER TR_VerificarDependenciasFases_Update
+BEFORE UPDATE ON fases
+FOR EACH ROW
+BEGIN
+    DECLARE fase_completada BOOLEAN;
+
+    IF NEW.fase_dependiente_id IS NOT NULL THEN
+        SELECT 
+            CASE 
+                WHEN (fecha_fin IS NOT NULL OR porcentaje_avance = 100) THEN TRUE 
+                ELSE FALSE 
+            END
+        INTO fase_completada
+        FROM fases
+        WHERE id_fase = NEW.fase_dependiente_id;
+
+        IF fase_completada = FALSE THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'No se puede modificar esta fase porque la fase dependiente aún no está completada.';
+        END IF;
+    END IF;
+END$$
+
+DELIMITER ;
+
+
+INSERT INTO fases (id_proyecto, codigo, nombre, porcentaje_avance)
+VALUES (1, 'F1', 'Diseño', 100);
+  
+INSERT INTO fases (id_proyecto, codigo, nombre, fase_dependiente_id, porcentaje_avance)
+VALUES (1, 'F2', 'Construcción', 1, 0);
+
+INSERT INTO fases (id_proyecto, codigo, nombre, fase_dependiente_id, porcentaje_avance)
+VALUES (1, 'F3', 'Acabados', 2, 0);
+
+SELECT * FROM inventario WHERE id_material = 1;
+
+--- vistas
+
+--- V_EstadoProyectos: 
+
+
+CREATE OR REPLACE VIEW V_EstadoProyectos AS
+SELECT 
+    p.id_proyecto,
+    p.codigo AS codigo_proyecto,
+    p.nombre AS nombre_proyecto,
+    p.fecha_inicio,
+    p.fecha_fin_estimada,
+    p.estado,
+    
+   
+    IFNULL(AVG(f.porcentaje_avance), 0) AS porcentaje_avance,
+    
+  
+    p.presupuesto_asignado,
+    
+   
+    IFNULL(SUM(g.monto), 0) AS presupuesto_consumido,
+    
+   
+    (p.presupuesto_asignado - IFNULL(SUM(g.monto), 0)) AS presupuesto_restante
+
+FROM proyectos p
+LEFT JOIN fases f ON p.id_proyecto = f.id_proyecto
+LEFT JOIN gastos g ON p.id_proyecto = g.id_proyecto
+
+GROUP BY 
+    p.id_proyecto, 
+    p.codigo, 
+    p.nombre, 
+    p.fecha_inicio, 
+    p.fecha_fin_estimada, 
+    p.estado, 
+    p.presupuesto_asignado;
+
+SELECT * FROM V_EstadoProyectos;
+
+
+--- V_InventarioMateriales:
+
+
+CREATE OR REPLACE VIEW V_InventarioMateriales AS
+SELECT
+    i.id_inventario,
+    i.almacen,
+    i.ubicacion,
+    m.codigo AS codigo_material,
+    m.descripcion AS descripcion_material,
+    m.categoria,
+    m.unidad_medida,
+    i.cantidad_stock,
+    i.precio_unitario,
+    (i.cantidad_stock * i.precio_unitario) AS valor_total,
+    i.fecha_ultima_entrada,
+    i.stock_minimo,
+    CASE
+        WHEN i.cantidad_stock <= i.stock_minimo THEN '⚠️ Bajo stock'
+        ELSE 'Disponible'
+    END AS estado_stock
+FROM inventario i
+INNER JOIN materiales m ON i.id_material = m.id_material
+ORDER BY i.almacen, m.descripcion;
+
+SELECT * FROM V_InventarioMateriales;
+
+--- V_AsignacionesPersonal:
+
+
+
+CREATE OR REPLACE VIEW V_AsignacionesPersonal AS
+SELECT
+    ap.id_asignacion,
+    e.id_empleado,
+    CONCAT(
+      COALESCE(e.nombres, ''), ' ',
+      COALESCE(e.apellidos, '')
+    ) AS nombre_empleado,
+    COALESCE(e.cargo, '') AS cargo,
+
+    p.id_proyecto,
+    p.codigo AS codigo_proyecto,
+    p.nombre AS nombre_proyecto,
+
+    f.id_fase,
+    f.nombre AS nombre_fase,
+
+    ap.rol,
+    ap.fecha_asignacion,
+    ap.horas_asignadas
+
+FROM asignaciones_personal ap
+INNER JOIN empleados e ON ap.id_empleado = e.id_empleado
+INNER JOIN proyectos p ON ap.id_proyecto = p.id_proyecto
+LEFT JOIN fases f ON ap.id_fase = f.id_fase
+ORDER BY p.nombre, f.nombre, e.nombres;
+
+-- Ejemplo de empleado
+INSERT INTO empleados (id_empleado, nombres, apellidos, cargo)
+VALUES ('604655', 'Juan', 'Pérez', 'Ingeniero Civil');
+
+-- Ejemplo de proyecto
+INSERT INTO proyectos (id_proyecto, codigo, nombre, presupuesto_asignado)
+VALUES (60, 'PR001', 'Torre Norte', 500000000);
+
+-- Ejemplo de fase
+INSERT INTO fases (id_fase, id_proyecto, codigo, nombre, porcentaje_avance, presupuesto_asignado)
+VALUES (60, 60, 'FA001', 'Cimentación', 50.0, 100000000);
+
+-- Ejemplo de asignación
+INSERT INTO asignaciones_personal (id_empleado, id_proyecto, id_fase, rol, fecha_asignacion, horas_asignadas)
+VALUES (60, 60, 60, 'Supervisor de obra', '2025-10-20', 160);
+
+
+SELECT * FROM V_AsignacionesPersonal;
+
+--- eventos
+
+--- 1.	EVT_ActualizarEstadoProyectos:
+
+
+
+DELIMITER $$
+
+CREATE EVENT EVT_ActualizarEstadoProyectos
+ON SCHEDULE EVERY 2 MINUTE
+STARTS CURRENT_TIMESTAMP + INTERVAL 1 MINUTE
+ON COMPLETION PRESERVE
+ENABLE
+DO
+BEGIN
+    -- Pendiente: no ha iniciado
+    UPDATE proyectos
+    SET estado = 'Pendiente'
+    WHERE fecha_inicio > CURDATE();
+
+    -- En ejecucion: ya inicio, avance < 100%
+    UPDATE proyectos p
+    JOIN (
+        SELECT id_proyecto, IFNULL(AVG(porcentaje_avance), 0) AS avance_promedio
+        FROM fases
+        GROUP BY id_proyecto
+    ) f ON p.id_proyecto = f.id_proyecto
+    SET p.estado = 'En ejecucion'
+    WHERE p.fecha_inicio <= CURDATE()
+      AND f.avance_promedio < 100
+      AND CURDATE() <= p.fecha_fin_estimada;
+
+    -- Finalizado: avance = 100%
+    UPDATE proyectos p
+    JOIN (
+        SELECT id_proyecto, IFNULL(AVG(porcentaje_avance), 0) AS avance_promedio
+        FROM fases
+        GROUP BY id_proyecto
+    ) f ON p.id_proyecto = f.id_proyecto
+    SET p.estado = 'Finalizado'
+    WHERE f.avance_promedio = 100;
+
+    -- Atrasado: fecha fin vencida y avance < 100%
+    UPDATE proyectos p
+    JOIN (
+        SELECT id_proyecto, IFNULL(AVG(porcentaje_avance), 0) AS avance_promedio
+        FROM fases
+        GROUP BY id_proyecto
+    ) f ON p.id_proyecto = f.id_proyecto
+    SET p.estado = 'Atrasado'
+    WHERE p.fecha_fin_estimada < CURDATE()
+      AND f.avance_promedio < 100;
+END$$
+
+DELIMITER ;
+
+SHOW EVENTS;
+
+SHOW CREATE EVENT EVT_ActualizarEstadoProyectos;
+
+--- EVT_VerificarStockMateriales
+
+
+DELIMITER $$
+
+CREATE OR REPLACE EVENT EVT_VerificarStockMateriales
+ON SCHEDULE EVERY 2 MINUTE
+STARTS CURRENT_TIMESTAMP + INTERVAL 1 MINUTE
+ON COMPLETION PRESERVE
+DO
+BEGIN
+    -- Inserta una alerta por cada material con stock bajo
+    INSERT INTO alertas_inventario (id_material, mensaje)
+    SELECT i.id_material,
+           CONCAT('El material "', m.descripcion, '" tiene bajo stock: ', i.cantidad_stock)
+    FROM inventario i
+    JOIN materiales m ON i.id_material = m.id_material
+    WHERE i.cantidad_stock < i.stock_minimo
+      AND i.id_material NOT IN (
+          SELECT a.id_material
+          FROM alertas_inventario a
+          WHERE a.estado = 'Pendiente'
+      );
+END$$
+
+DELIMITER ;
+
+
+SHOW EVENTS;
+SHOW CREATE EVENT EVT_VerificarStockMateriales;
+
+SET GLOBAL event_scheduler = ON;
+
+--- funciones 
+--- FN_CalcularCostoFase
+
+DELIMITER $$
+
+CREATE FUNCTION FN_CalcularCostoFase(p_id_fase INT)
+RETURNS DECIMAL(15,2)
+DETERMINISTIC
+BEGIN
+    DECLARE v_costo_total DECIMAL(15,2);
+
+    -- Sumar todos los gastos de la fase
+    SELECT IFNULL(SUM(monto), 0)
+    INTO v_costo_total
+    FROM gastos
+    WHERE id_fase = p_id_fase;
+
+    RETURN v_costo_total;
+END$$
+
+DELIMITER ;
+
+SHOW FUNCTION STATUS WHERE Db = 'construdata';
+
+SELECT FN_CalcularCostoFase(1) AS costo_total_fase;
+SHOW CREATE FUNCTION FN_CalcularCostoFase;
+
+
+
+
+--- FN_ObtenerDisponibilidadMaquinaria:
+
+
+DELIMITER $$
+
+CREATE FUNCTION FN_ObtenerDisponibilidadMaquinaria(
+    p_id_maquinaria INT,
+    p_fecha_inicio DATE,
+    p_fecha_fin DATE
+)
+RETURNS VARCHAR(20)
+DETERMINISTIC
+BEGIN
+    DECLARE v_disponible VARCHAR(20);
+
+    -- Verificar si la maquinaria tiene asignaciones activas en el rango de fechas dado
+    IF EXISTS (
+        SELECT 1
+        FROM asignaciones_maquinaria
+        WHERE id_maquinaria = p_id_maquinaria
+          AND estado = 'Activa'
+          AND (
+              (p_fecha_inicio BETWEEN fecha_inicio AND fecha_fin)
+              OR (p_fecha_fin BETWEEN fecha_inicio AND fecha_fin)
+              OR (fecha_inicio BETWEEN p_fecha_inicio AND p_fecha_fin)
+          )
+    ) THEN
+        SET v_disponible = 'No disponible';
+    ELSE
+        SET v_disponible = 'Disponible';
+    END IF;
+
+    RETURN v_disponible;
+END$$
+
+DELIMITER ;
+
+
+
+
+INSERT INTO maquinaria (codigo, nombre, modelo) VALUES
+('MAQ010', 'Retroexcavadora', 'Pesada');
+
+INSERT INTO asignaciones_maquinaria (id_maquinaria, id_proyecto, id_fase, fecha_inicio, fecha_fin)
+VALUES (1, 1, 1, '2025-11-01', '2025-11-10');
+
+
+
+
+
